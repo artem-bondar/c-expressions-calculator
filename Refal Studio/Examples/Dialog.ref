@@ -1,0 +1,12 @@
+DIALOG start
+ entry go
+ extrn NUMB, SYMB, OPNGET
+ extrn ADD, DR, SUB, PRINT, CARD
+ extrn CP, DG, BR, RP, DGALL
+  
+go = <main>
+main = <toadd (<NUMB<card 'first number '>>)<NUMB<card 'second number '>>>
+toadd e1 = <BR 'e1='e1><BR 'rezult='<PRINT<ADD e1>>>
+     
+ end
+

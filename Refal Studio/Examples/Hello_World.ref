@@ -1,0 +1,13 @@
+DIALOG start
+ entry go
+ extrn PRINT
+
+* comments here
+
+method1 (e1) = <PRINT e1>
+ = <method1 ('Hello World!')>
+
+go = <method1>
+     
+ end
+

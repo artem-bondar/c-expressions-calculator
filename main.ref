@@ -1,0 +1,335 @@
+c_parser start
+ empty OK, LABEL
+ empty if, then, else
+ empty eqv, plq, miq, muq, diq, req, lshq, rshq
+*       =   +=   -=   *=   /=   %=   <<=   >>=
+
+ empty leq, lnq, lbq, lsq, lan, lor
+*      ==   !=   >=   <=   &&   || 
+
+ empty lsh, rsh, bip, bim
+*binary <<  >>    +    -
+
+ empty  ptp, ptm,     prp, prm,    unn, unp, unm
+*postfix ++  -- prefix ++  -- unary !    +    -
+ 
+ extrn card, cvb, cvd, prout
+ extrn add, sub, mul, div, dr, nrel
+ extrn rp, cp, dg, dgall
+ 
+ entry go
+
+assigment S /eqv//plq//miq//muq//diq//req//lshq//rshq/
+logical S /leq//lnq//lbq//lsq/ '<>' /lan//lor/
+binary S :logical: /lsh//rsh//bip//bim/ ',*/%'
+fix S /ptp//ptm//prp//prm/
+unary S :fix: /unn//unp//unm/
+
+*____________________[Main functions]____________________*
+
+go = <check_input<card 'Input your expression: '>>
+
+check_input /OK/e1 = <check_input<evaluate<parse_unary<parse_binary<delete_tabs<parse_logical<parse_ternary<parse_assigment<separate_comma<separate_brackets e1>>>>>>>>>/LABEL/>
+ /error/e1 = <prout '\nProgram finished.\n'>
+ e1/LABEL/ = <prout 'Result of evaluation: 'e1'\n'>
+ e1 = <check_input<check_brackets e1>e1>
+
+*____________________[Evaluate functions]____________________*
+
+evaluate (e1) = <evaluate e1>
+ e1/error/e2 =
+ 
+*binary operations
+ (e1)s(:binary:)A(e2) = <evaluate <evaluate e1>sA<evaluate e2>>
+ e1/bip/e2 = <cvd<add(<cvb e1>)<cvb e2>>>
+ e1/bim/e2 = <cvd<sub(<cvb e1>)<cvb e2>>>
+ e1'*'e2 = <cvd<mul(<cvb e1>)<cvb e2>>>
+ e1s('/%')A'0' = <error 'zero division occured!'>
+ e1'/'e2 = <cvd<div(<cvb e1>)<cvb e2>>>
+ e1'%'e2 = <cvd<cut_remainder<dr(<cvb e1>)<cvb e2>>>>
+ e1s((/lan//lor/) :logical:)Ae2 = <evaluate_logical sA<nrel (<cvb e1>)<cvb e2>>>
+ '0'/lan/e1 = '0'
+ e1/lan/'0' = '0'
+ '0'/lor/'0' = '0'
+ e1s(/lan//lor/)Ae2 = '1'
+ e1/lsh/'-'e2 = <evaluate e1/rsh/e2>
+ e1/rsh/'-'e2 = <evaluate e1/lsh/e2>
+ e1s(/lsh//rsh/)Ae2 = <cvd<shift sA(<cvb e2>)<cvb e1>>>
+ 
+*unary operations 
+ s(:fix:)A(e1) = <evaluate sA<evaluate_fixes e1sA>>
+ s(:unary:)A(e1) = <evaluate sA<evaluate e1>>
+ /unn/'0' = '1' 
+ /unn/v1 = '0'
+ /unp/v1 = v1
+ /unm/'0' = '0'
+ /unm/'-'v1 = v1
+ /unm/v1 = '-'v1
+ s(/ptp//prp/)Av1 = <cvd<add(<cvb v1>)/1/>>
+ s(/ptm//prm/)Av1 = <cvd<sub(<cvb v1>)/1/>>
+
+*assigment operations
+ (e1)s((/eqv/) :assigment:)A(e2) = <evaluate e1/eqv/<evaluate (e1)<convert_to_binary sA>(e2)>>
+ (e1)/eqv/(e2) = <evaluate e1/eqv/<evaluate e2>>
+ e1/eqv/e2 = e2<update_bank <dgall>><rp e1'='e2>
+
+*ternary operator
+ /if/(e1)/then/(e2)/else/(e3) = <evaluate /if/<evaluate e1>/then/(e2)/else/(e3)>
+ /if/'0'/then/(e1)/else/(e2) = <evaluate e2>
+ /if/e1/then/(e2)/else/(e3) = <evaluate e2>
+
+*comma operator
+ e1','e2 = e2<update_bank <dgall>>
+ 
+ e1 = <substitute e1>
+
+substitute  /LABEL/v1 = v1
+ /LABEL/ = <error 'used undefined identifier!'>
+ e1' 'e2 = <error 'identifier or number can not consist of several parts!'>
+ v(D)1 = v1
+ '-'v(D)1 = '-'v1
+ v1 = <substitute /LABEL/<cp v1>>
+ = <error 'used empty or incorrect expression!'>
+
+convert_to_binary /plq/ = /bip/
+ /miq/ = /bim/
+ /muq/ = '*'
+ /diq/ = '/'
+ /req/ = '%'
+ /lshq/ = /lsh/
+ /rshq/ = /rsh/
+
+cut_remainder v1(v2) = v2
+
+evaluate_fixes /LABEL/s(/ptp//ptm/)Av1/LABEL/v2 = v1<rp /LABEL/v2'='<cp /LABEL/v2>sA>
+ /LABEL//prp/v1/LABEL/v2 = v1<rp v2'='<cvd<add(<cvb v1>)/1/>>>
+ /LABEL//prm/v1/LABEL/v2 = v1<rp v2'='<cvd<sub(<cvb v1>)/1/>>>
+ /LABEL/s(:fix:)A/LABEL/v1 = <error 'used undefined identifier!'>
+ v(D)1s(:fix:)A = v1
+ '-'v(D)1s(:fix:)A = '-'v1
+ e1(e2)e3s(:fix:)A = <evaluate e1(e2)e3>
+ e1' 'e2 = <error 'identifier or number can not consist of several parts!'>
+ v1s(:fix:)A = <evaluate_fixes /LABEL/sA<cp v1>/LABEL/v1>
+ s(:fix:)A = <error 'used empty or incorrect expression!'>
+ 
+evaluate_logical s(/leq//lbq//lsq/)A'='e1 = '1'
+ s(/lbq/'>')A'>'e1 = '1'
+ s(/lsq/'<')A'<'e1 = '1'
+ e1 = '0'
+ 
+shift s(/lsh//rsh/)A(/0/)eB = eB
+ /lsh/(eA)eB = <shift /lsh/(<sub (eA)/1/>)<mul(eB)/2/>>
+ /rsh/(eA)eB = <shift /rsh/(<sub (eA)/1/>)<div(eB)/2/>>
+ 
+update_bank =
+ e1(vA'='/LABEL/vC)e2 = <br vA'='vC><update_bank e1e2>
+ e1(vA'='vB)e2(vA'='vC)e3 = <update_bank (vA'='vBvC)e1e2e3>
+ e1(/LABEL/vA'='vB)e2(vA'='vC)e3 = <update_bank (vA'='vB/LABEL/vC)e1e2e3>
+ e1(vA'='vC)e2(/LABEL/vA'='vB)e3 = <update_bank (vA'='vB/LABEL/vC)e1e2e3>
+ e1(vA'='eX/ptp/eB/ptm/eY/LABEL/vC)e2 = <update_bank (vA'='eXeBeY/LABEL/vC)e1e2>
+ e1(vA'='eX/ptm/eB/ptp/eY/LABEL/vC)e2 = <update_bank (vA'='eXeBeY/LABEL/vC)e1e2>
+ e1(vA'='/ptp/eB/LABEL/vC)e2 = <update_bank (vA'='eB/LABEL/<cvd<add(<cvb vC>)/1/>>)e1e2>
+ e1(vA'='/ptm/eB/LABEL/vC)e2 = <update_bank (vA'='eB/LABEL/<cvd<sub(<cvb vC>)/1/>>)e1e2>
+ e1(vA'='vC)e2 = <br vA'='vC><update_bank e1e2>
+ 
+*____________________[Parse functions]____________________*
+
+separate_brackets e1'('e2'('e3')'e4 = e1<separate_brackets '('e2<separate_brackets '('e3')'>e4>
+ e1'('e2')'e3 = e1(e2)<separate_brackets e3>
+ e1 = e1
+ 
+separate_comma R e1','e2 = (<separate_comma e1>)','(<separate_comma e2>)
+ R e1(e2)e3 = <separate_comma e1>(<separate_comma e2>)e3
+ e1 = e1
+ 
+*----------[Assigment]----------*
+parse_assigment /OK/e1 = <separate_assigment e1>
+ /error/e1 =
+ e1 = <parse_assigment<check_error<check_assigment e1><check_assigment_inside e1>>e1>
+
+separate_assigment e1(e2)e3 = <separate_assigment_inside e1(<separate_assigment e2>)<separate_assigment e3>>
+ e1 = <separate_assigment_inside e1>
+
+separate_assigment_inside v1'='v2'='v3 = <separate_assigment_once v1'='<separate_assigment_inside v2'='v3>>
+ e1 = <separate_assigment_once e1>
+ 
+separate_assigment_once v1'+='v2 = (v1)/plq/(v2)
+ v1'-='v2 = (v1)/miq/(v2)
+ v1'*='v2 = (v1)/muq/(v2)
+ v1'/='v2 = (v1)/diq/(v2)
+ v1'%='v2 = (v1)/req/(v2)
+ v1'<<='v2 = (v1)/lshq/(v2)
+ v1'>>='v2 = (v1)/rshq/(v2)
+ e1'!='e2 = e1/lnq/e2
+ e1'=='e2 = e1/leq/e2
+ e1'>='e2 = e1/lbq/e2
+ e1'<='e2 = e1/lsq/e2
+ v1'='v2 = (v1)/eqv/(v2)
+ e1 = e1
+ 
+*----------[Ternary]----------*
+parse_ternary /OK/e1 = <separate_ternary e1>
+ /error/e1 =
+ e1 = <parse_ternary<check_error<check_ternary e1><check_ternary_inside e1>>e1>
+
+separate_ternary e1(e2)e3 = <separate_ternary_inside e1(<separate_ternary e2>)<separate_ternary e3>>
+ e1 = <separate_ternary_inside e1>
+
+separate_ternary_inside v1'?'v2'?'v3 = <separate_ternary_once v1'?'<separate_ternary_inside v2'?'v3>>
+ e1 = <separate_ternary_once e1>
+ 
+separate_ternary_once v1':'v2'?'v3 = v1':'<separate_ternary_once v2'?'v3>
+ v1'?'v2':'v3':'v4 = <separate_ternary_once v1'?'v2':'v3>':'v4
+ v1'?'v2':'v3 = /if/(v1)/then/(v2)/else/(v3)
+ e1 = e1
+ 
+*----------[Logical]----------* 
+parse_logical /OK/e1 = <separate_logical e1>
+ /error/e1 =
+ e1 = <parse_logical<check_error<check_logical e1><check_logical_inside e1>>e1>
+
+separate_logical e1(e2)e3 = <separate_logical_inside e1(<separate_logical e2>)<separate_logical e3>>
+ e1 = <separate_logical_inside e1>
+
+separate_logical_inside R e1'||'e2 = (<separate_logical_inside e1>)/lor/(<separate_logical_inside e2>)
+ R e1'&&'e2 = (<separate_logical_inside e1>)/lan/(<separate_logical_inside e2>)
+ R e1/leq/e2 = (<separate_logical_inside e1>)/leq/(<separate_logical_inside e2>)
+ R e1/lnq/e2 = (<separate_logical_inside e1>)/lnq/(<separate_logical_inside e2>)
+ e1'>>'e2 = <separate_logical_inside e1/rsh/e2>
+ e1'<<'e2 = <separate_logical_inside e1/lsh/e2>
+ R e1'>'e2 = (<separate_logical_inside e1>)'>'(<separate_logical_inside e2>)
+ R e1'<'e2 = (<separate_logical_inside e1>)'<'(<separate_logical_inside e2>)
+ R e1/lbq/e2 = (<separate_logical_inside e1>)/lbq/(<separate_logical_inside e2>)
+ R e1/lsq/e2 = (<separate_logical_inside e1>)/lsq/(<separate_logical_inside e2>)
+ R e1/rsh/e2 = (<separate_logical_inside e1>)/rsh/(<separate_logical_inside e2>)
+ R e1/lsh/e2 = (<separate_logical_inside e1>)/lsh/(<separate_logical_inside e2>)
+ e1 = e1
+ 
+*----------[Other]----------*
+parse_unary e1(e2)e3 = <separate_unary e1(<parse_unary e2>)<parse_unary e3>>
+ e1 = <separate_unary e1>
+
+separate_unary e1'++--'e2 = <separate_unary e1e2>
+ e1'--++'e2 = <separate_unary e1e2>
+ '++'e1 = /ptp/(<separate_unary e1>)
+ '--'e1 = /ptm/(<separate_unary e1>)
+ '+'e1 = /unp/(<separate_unary e1>)
+ '-'e1 = /unm/(<separate_unary e1>)
+ '!'e1 = /unn/(<separate_unary e1>)
+ v1'++'e2 = <separate_unary /ptp/(v1)e2>
+ v1'--'e2 = <separate_unary /ptm/(v1)e2>
+ e1 = e1
+
+parse_binary /LABEL/e1(e2)e3 = e1(<parse_binary e2>)<parse_binary /LABEL/e3>
+ e1(e2)e3 = <separate_binary e1(<parse_binary e2>)<parse_binary /LABEL/e3>>
+ /LABEL/e1 = e1
+ e1 = <separate_binary e1>
+
+separate_binary R e1s(('+-*/%!'))As('+-*/%')B = (<separate_binary e1sA>)/bip/()
+ R e1(eA)'+'e2s(('+-*/%!'))Be3 = (<separate_binary e1(eA)>)/bip/(<separate_binary e2sBe3>)
+ R e1(eA)'+'e2(eB)e3 = (<separate_binary e1(eA)>)/bip/(<separate_binary e2(eB)e3>)
+ R e1s(('+-*/%!'))A'+'e2s(('+-*/%!'))Be3 = (<separate_binary e1sA>)/bip/(<separate_binary e2sBe3>)
+ R e1s(('+-*/%!'))A'+'e2(eB)e3 = (<separate_binary e1sA>)/bip/(<separate_binary e2(eB)e3>)
+ 
+ R e1(eA)'-'e2s(('+-*/%'))Be3 = (<separate_binary e1(eA)>)/bim/(<separate_binary e2sBe3>)
+ R e1(eA)'-'e2(eB)e3 = (<separate_binary e1(eA)>)/bim/(<separate_binary e2(eB)e3>)
+ R e1s(('+-*/%!'))A'-'e2s(('+-*/%!'))Be3 = (<separate_binary e1sA>)/bim/(<separate_binary e2sBe3>)
+ R e1s(('+-*/%!'))A'-'e2(eB)e3 = (<separate_binary e1sA>)/bim/(<separate_binary e2(eB)e3>)
+ 
+ R e1(eA)'*'e2s(('+-*/%'))Be3 = (<separate_binary e1(eA)>)'*'(<separate_binary e2sBe3>)
+ R e1(eA)'*'e2(eB)e3 = (<separate_binary e1(eA)>)'*'(<separate_binary e2(eB)e3>)
+ R e1s(('+-*/%!'))A'*'e2s(('+-*/%!'))Be3 = (<separate_binary e1sA>)'*'(<separate_binary e2sBe3>)
+ R e1s(('+-*/%!'))A'*'e2(eB)e3 = (<separate_binary e1sA>)'*'(<separate_binary e2(eB)e3>)
+ 
+ R e1(eA)'/'e2s(('+-*/%!'))Be3 = (<separate_binary e1(eA)>)'/'(<separate_binary e2sBe3>)
+ R e1(eA)'/'e2(eB)e3 = (<separate_binary e1(eA)>)'/'(<separate_binary e2(eB)e3>)
+ R e1s(('+-*/%!'))A'/'e2s(('+-*/%!'))Be3 = (<separate_binary e1sA>)'/'(<separate_binary e2sBe3>)
+ R e1s(('+-*/%!'))A'/'e2(eB)e3 = (<separate_binary e1sA>)'/'(<separate_binary e2(eB)e3>)
+ 
+ R e1(eA)'%'e2s(('+-*/%!'))Be3 = (<separate_binary e1(eA)>)'%'(<separate_binary e2sBe3>)
+ R e1(eA)'%'e2(eB)e3 = (<separate_binary e1(eA)>)'%'(<separate_binary e2(eB)e3>)
+ R e1s(('+-*/%!'))A'%'e2s(('+-*/%!'))Be3 = (<separate_binary e1sA>)'%'(<separate_binary e2sBe3>)
+ R e1s(('+-*/%!'))A'%'e2(eB)e3 = (<separate_binary e1sA>)'%'(<separate_binary e2(eB)e3>)
+ e1 = e1
+ 
+delete_tabs e1(e2)e3 = <delete_tabs_inside e1>(<delete_tabs e2>)<delete_tabs e3>
+ e1 = <delete_tabs_inside e1>
+
+delete_tabs_inside ' 'e1 = <delete_tabs_inside e1>
+ e1' ' = <delete_tabs_inside e1>
+ e1' 's(' +-*/%')Ae2 = <delete_tabs_inside e1sAe2>
+ e1s(' +-*/%')A' 'e2 = <delete_tabs_inside e1sAe2>
+ e1 = e1
+
+*____________________[Check functions]____________________*
+
+check_brackets e1'()'e2 = <error 'empty brackets occured!'>
+ e1'('va')'e2 = <check_brackets vae2>
+ e1'('e2 = <error 'right bracket is missed!'>
+ e1')'e2 = <error 'left bracket is missed!'>
+ e1 = /OK/
+ 
+*----------[Assigment]----------*
+check_assigment_inside e1(e2)e3 = <check_assigment e2><check_assigment_inside e2><check_assigment_inside e3>
+ e1 = /OK/
+ 
+check_assigment e1'==='e2 = <error 'unrecognized === operation!'>
+ e1'!='e2 = <check_assigment /LABEL/e2>
+ e1'=='e2 = <check_assigment /LABEL/e2>
+ e1'>='e2 = <check_assigment /LABEL/e2>
+ e1'<='e2 = <check_assigment /LABEL/e2>
+ /LABEL/v1'='v2 = <error 'argument is not a lvalue!'>
+ v1'='v2 = <check_assigment_variable v1><check_assigment v2>
+ '='e1 = <error 'missing variable for assigment!'>
+ v1'=' = <error 'missing argument for assigment!'>
+ e1 = /OK/
+
+check_assigment_variable e1s('+-*/%')A = <check_assigment_variable e1>
+ e1'<<' = <check_identifier e1>
+ e1'>>' = <check_identifier e1>
+ e1 = <check_identifier e1>
+ 
+check_identifier e1'  'e2 = <check_identifier e1' 'e2>
+ e1s('+-*/%><!&|')Ae2 = <error 'used locked symbols for identifier!'>
+ e1s((' '))A' 's((' '))Be2 = <error 'identifier can not consist more than of one word!'>
+ e1(e2)e3 = <error 'identifier is an expression!'>
+ e(' ')1s(D)Ae(' ')2 = <error 'a number can not be an identifier!'>
+ e1s((' '))Ae2 = /OK/
+ e1 = <error 'missing identifier!'>
+ 
+*----------[Ternary]----------* 
+check_ternary_inside e1(e2)e3 = <check_ternary e2><check_ternary_inside e2><check_ternary_inside e3>
+ e1 = /OK/
+ 
+check_ternary v1'?'v2':'v3 = <check_ternary v2v3>
+ '?'e1':'e2 = <error 'if-block for ternary operator is empty!'>
+ v1'?:'e2 = <error 'then-block for ternary operator is empty!'>
+ v1'?'v2':' = <error 'else-block for ternary operator is empty!'>
+ e1'?'e2 = <error 'missing : for ternary operator!'>
+ e1':'e2 = <error 'missing ? for ternary operator!'>
+ e1 = /OK/
+ 
+*----------[Logical]----------*
+check_logical_inside e1(e2)e3 = <check_logical e2><check_logical_inside e2><check_logical_inside e3>
+ e1 = /OK/
+ 
+check_logical e1s(('&|'))As('&|')Bs(('&|'))Ce2 = <error 'missing & or | for logical operator!'>
+ s('&|')As(('&|'))Be2 = <error 'missing & or | for logical operator!'>
+ e1s(('&|'))As('&|')B = <error 'missing & or | for logical operator!'>
+ e1'&&&'e2 = <error 'incorrect logical operator &&&!'>
+ e1'|||'e2 = <error 'incorrect logical operator |||!'>
+ e1'<<<'e2 = <error 'incorrect logical operator <<<!'>
+ e1'>>>'e2 = <error 'incorrect logical operator >>>!'>
+ e1'&&'e2 = <check_logical e2>
+ e1'||'e2 = <check_logical e2>
+ e1'<<'e2 = <check_logical e2>
+ e1'>>'e2 = <check_logical e2>
+ e1 = /OK/
+ 
+*----------[Other]----------*
+check_error e1/error/e2 = /error/
+ e1(e2)e3 = <check_error<check_error e2><check_error e3>>
+ e1 = /OK/
+ 
+error e1 = /error/<prout 'Error: 'e1>
+ end
